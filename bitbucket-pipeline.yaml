@@ -1,0 +1,73 @@
+image: golang
+pipelines:
+  branches:
+    staging:
+      - step:
+          name: Build image
+          script:
+            - export IMAGE_NAME=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/revolut:latest
+            - docker build -t $IMAGE_NAME .
+            - $(aws ecr get-login --no-include-email --region $AWS_DEFAULT_REGION
+            - docker push $IMAGE_NAME
+            - variables:
+                AWS_ACCOUNT_ID: $AWS_ACCOUNT_ID
+                AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
+                AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
+                AWS_DEFAULT_REGION: $AWS_DEFAULT_REGION
+      - step:
+          name: Deploy on Staging Cluster AWS ECS
+          script:
+            - apt-get update && apt-get install -y jq curl
+            - curl "https://s3.amazonaws.com/aws-cli/awscli-bundle.zip" -o "awscli-bundle.zip" && unzip awscli-bundle.zip
+            - ./awscli-bundle/install -b ~/bin/aws && export PATH=~/bin:$PATH
+            - export IMAGE_NAME=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/revolut:latest
+            - envsubst < task-definition.json >  task-definition-envsubst.json
+            - >
+                export UPDATED_TASK_DEFINITION=$(aws ecs register-task-definition --cli-input-json file://task-definition-envsubst.json | \
+                jq '.taskDefinition.taskDefinitionArn' --raw-output)  
+            - aws ecs update-service --service example-ecs-service --cluster example-ecs-cluster --task-definition ${UPDATED_TASK_DEFINITION}
+            - pipe: atlassian/aws-ecs-deploy:1.6.2
+              variables:
+                AWS_ACCOUNT_ID: $AWS_ACCOUNT_ID
+                AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
+                AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
+                AWS_DEFAULT_REGION: $AWS_DEFAULT_REGION
+                CLUSTER_NAME: $CLUSTER_NAME
+                SERVICE_NAME: $SERVICE_NAME
+                TASK_DEFINITION: $TASK_DEFINITION
+                IMAGE_NAME: $AWS_ACCESS_KEY_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/revolut:latest
+    master:
+      - step:
+          name: Build image
+          script:
+            - export IMAGE_NAME=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/revolut:latest
+            - docker build -t $IMAGE_NAME .
+            - $(aws ecr get-login --no-include-email --region $AWS_DEFAULT_REGION
+            - docker push $IMAGE_NAME
+            - variables:
+                AWS_ACCOUNT_ID: $AWS_ACCOUNT_ID
+                AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
+                AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
+                AWS_DEFAULT_REGION: $AWS_DEFAULT_REGION
+      - step:
+          name: Deploy on Production Cluster AWS ECS
+          script:
+            - apt-get update && apt-get install -y jq curl
+            - curl "https://s3.amazonaws.com/aws-cli/awscli-bundle.zip" -o "awscli-bundle.zip" && unzip awscli-bundle.zip
+            - ./awscli-bundle/install -b ~/bin/aws && export PATH=~/bin:$PATH
+            - export IMAGE_NAME=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/revolut:latest
+            - envsubst < task-definition.json >  task-definition-envsubst.json
+            - >
+                export UPDATED_TASK_DEFINITION=$(aws ecs register-task-definition --cli-input-json file://task-definition-envsubst.json | \
+                jq '.taskDefinition.taskDefinitionArn' --raw-output)  
+            - aws ecs update-service --service example-ecs-service --cluster example-ecs-cluster --task-definition ${UPDATED_TASK_DEFINITION}
+            - pipe: atlassian/aws-ecs-deploy:1.6.2
+              variables:
+                AWS_ACCOUNT_ID: $AWS_ACCOUNT_ID
+                AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
+                AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
+                AWS_DEFAULT_REGION: $AWS_DEFAULT_REGION
+                CLUSTER_NAME: $CLUSTER_NAME
+                SERVICE_NAME: $SERVICE_NAME
+                TASK_DEFINITION: $TASK_DEFINITION
+                IMAGE_NAME: $AWS_ACCESS_KEY_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/revolut:latest                
